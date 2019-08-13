@@ -26,7 +26,8 @@ function check() {
 	do
 		if [ ! -f $i ] 
 		then
-			echo "please make sure your source path is correct."
+			echo "$i" "not exist."
+			echo "please make sure source path is correct."
 			exit 0
 		fi
 
