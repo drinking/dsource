@@ -11,93 +11,68 @@ function showHelp() {
 
 function check() {
 
-	frameworks=($(find "$1" -name "*.framework"))
-	dirs=()
+	condition=$(basename "$2")
+	file=($( dwarfdump "$1" | grep -E "DW_AT_decl_file.*$condition.*\.m|\.c" | head -1 | cut -d \" -f2 ))
 
+	if [ ! -f $file ] 
+	then
+		echo "$file" "not exist."
+		echo "please make sure source path is correct."
+		exit 0
+	fi
 
-	for i in ${frameworks[@]}
-	do
-		BASENAME=$(basename "$i")
-		NAME=${BASENAME%.*}
-		dirs+=($( dwarfdump "$i"/"$NAME" | grep "DW_AT_decl_file" | grep $NAME | head -1 | cut -d \" -f2 ))
-	done
-
-	for i in ${dirs[@]}
-	do
-		if [ ! -f $i ] 
-		then
-			echo "$i" "not exist."
-			echo "please make sure source path is correct."
-			exit 0
-		fi
-
-	done
-
-	echo "link successfully"
-
+	echo "link successfully!"
+	echo "view linked source at path:" $2
 }
 
 function link() {
 
-	frameworks=($(find "$1" -name "*.framework"))
-	dirs=()
+	dir=($( dwarfdump "$1" | grep "AT_comp_dir" | head -1 | cut -d \" -f2 ))
 
-
-	for i in ${frameworks[@]}
-	do
-		BASENAME=$(basename "$i")
-		NAME=${BASENAME%.*}
-		dir=($( dwarfdump "$i"/"$NAME" | grep "AT_comp_dir" | head -1 | cut -d \" -f2 ))
-		if [ ! -z $dir ]
-		then
-			dirs+=("$dir"/"$NAME")
-		fi
-	done
-
-	for i in ${dirs[@]}
-	do
-		echo "ln " $i "to" $2
-	done
-	echo "to link [y/n]?"
-
-	read input
-	if [ $input == 'y' ]
+	if [ ! -d $dir ] 
 	then
-		for i in ${dirs[@]}
-		do
-			sudo mkdir -p $i
-			sudo ln -s $2 $i
-		done
-
+		echo "$dir" 
+		echo "directory does not exist, create one? [y/n]"
+		read input
+		if [ $input == 'y' ]
+		then
+			sudo mkdir -p $dir
+		else
+			exit 0
+		fi
 	fi
 
-	check $1
+	if [ ! -d $2 ]
+	then
+		echo "source directory is not exist, please input the right path."
+		echo "or manually copy source directory to the path above."
+		exit 0
+	fi
+
+	BASENAME=$(basename "$1")
+	NAME=${BASENAME%.*}
+	sudo ln -s "$2" $dir"/""$NAME"
+
+	check $1 $dir
 	
 }
 
 function delete() {
 
-	frameworks=($(find "$1" -name "*.framework"))
-	dirs=()
+	dir=($( dwarfdump "$1" | grep "AT_comp_dir" | head -1 | cut -d \" -f2 ))
 
+	if [ ! -d $dir ]
+	then
+		echo "directory not exist."
+		exit 0
+	fi
 
-	for i in ${frameworks[@]}
-	do
-		BASENAME=$(basename "$i")
-		NAME=${BASENAME%.*}
-		dirs+=($( dwarfdump "$i"/"$NAME" | grep "AT_comp_dir" | head -1 | cut -d \" -f2 ))
-	done
-	
-	echo $dirs
+	echo $dir
 	echo "to delete [y/n]?"
 	read input
 	if [ $input == 'y' ]
 	then
-		for i in ${dirs[@]}
-		do
-			sudo rm -rf $i
-		done
-
+		sudo rm -rf $dir
 	fi
 	
 }
