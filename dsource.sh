@@ -2,10 +2,10 @@
 
 function showHelp() {
 	echo "SYNOPSIS"
-	echo "\t ./dsource [-ldc] /path/to/pod [/path/to/source]"
+	echo "\t ./dsource [-ldc] /path/to/{*.a|xx.framework/xx} [/path/to/source]"
 	echo "DESCRIPTION"
-	echo "\t -l\tlink pod path to source code path"
-	echo "\t -d\t delete linked files depends on pod path"
+	echo "\t -l\tlink a binary path to source code path"
+	echo "\t -f\t using dwarfdump to find a binary file's compile dir"
 	echo "\t -c\t check linked files exist at the right path"
 }
 
@@ -49,15 +49,22 @@ function link() {
 		exit 0
 	fi
 
-	BASENAME=$(basename "$1")
-	NAME=${BASENAME%.*}
-	sudo ln -s "$2" $dir"/""$NAME"
+	EXTENSION="${1##*.}"
+	if [ $EXTENSION == "a" ]
+	then
+		sudo rm $dir
+		sudo ln -s "$2" $dir
+	else 
+		BASENAME=$(basename "$1")
+		NAME=${BASENAME%.*}
+		sudo ln -s "$2" $dir"/""$NAME"
+	fi
 
 	check $1 $dir
 	
 }
 
-function delete() {
+function findCompileDir() {
 
 	dir=($( dwarfdump "$1" | grep "AT_comp_dir" | head -1 | cut -d \" -f2 ))
 
@@ -67,13 +74,8 @@ function delete() {
 		exit 0
 	fi
 
-	echo $dir
-	echo "to delete [y/n]?"
-	read input
-	if [ $input == 'y' ]
-	then
-		sudo rm -rf $dir
-	fi
+	echo "compile dir is:" $dir
+	echo "you may copy source code to this directory, and use dsourc -c to check it"
 	
 }
 
@@ -82,15 +84,15 @@ OPTIND=1         # Reset in case getopts has been used previously in the shell.
 
 link=0
 check=0
-delete=0
+find=0
 
-while getopts "h?cld" opt; do
+while getopts "h?clf" opt; do
     case "$opt" in
     c)  check=1
     	;;
     l)  link=1
         ;;
-    d)  delete=1
+    f)  find=1
         ;;
     h|\?)
 	    showHelp
@@ -115,14 +117,14 @@ then
 	link $1 $2
 fi
 
-if [ $delete == 1 ]
+if [ $find == 1 ]
 then
 	if [ -z "$1" ]
 	then
 		echo "error: please input pod path"
 		exit 0
 	fi
-	delete $1
+	findCompileDir $1
 fi
 
 if [ $check == 1 ]
